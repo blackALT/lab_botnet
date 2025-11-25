@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <title>Painel C2 - Mirai Safe-Mode</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+        :root {
+            --bg: #0b1020;
+            --bg-card: #151a2c;
+            --accent: #38bdf8;
+            --accent-soft: rgba(56, 189, 248, 0.15);
+            --text: #f9fafb;
+            --text-muted: #9ca3af;
+            --danger: #f97373;
+            --success: #22c55e;
+            --warning: #facc15;
+            --border: #1f2937;
+            --radius: 12px;
+            --shadow: 0 18px 45px rgba(0, 0, 0, 0.55);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+                sans-serif;
+            background: radial-gradient(circle at top, #111827 0, #020617 45%);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            gap: 12px;
+        }
+
+        .title-block h1 {
+            font-size: 1.6rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .title-tag {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            padding: 3px 8px;
+            border-radius: 999px;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            background-color: var(--accent-soft);
+        }
+
+        .title-block p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 4px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .pill {
+            font-size: 0.8rem;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+
+        .pill span {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        button.refresh-btn {
+            border-radius: 999px;
+            border: 1px solid var(--accent);
+            background: var(--accent-soft);
+            color: var(--accent);
+            font-size: 0.85rem;
+            padding: 8px 14px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        button.refresh-btn:hover {
+            background: rgba(56, 189, 248, 0.25);
+        }
+
+        /* Cards */
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: linear-gradient(145deg, #020617, #020617);
+            border-radius: var(--radius);
+            border: 1px solid rgba(31, 41, 55, 0.85);
+            padding: 14px;
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.18), transparent 60%);
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .card-title {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .card-value {
+            font-size: 1.7rem;
+            font-weight: 600;
+        }
+
+        .card-foot {
+            margin-top: 6px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+        }
+
+        .dot.green { background: var(--success); }
+        .dot.red { background: var(--danger); }
+        .dot.yellow { background: var(--warning); }
+
+        /* Tabela */
+        .panel {
+            background: rgba(15, 23, 42, 0.98);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            padding: 14px 14px 8px;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            gap: 10px;
+        }
+
+        .panel-header h2 {
+            font-size: 1rem;
+        }
+
+        .search-box {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 9px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: #020617;
+            gap: 6px;
+        }
+
+        .search-box input {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text);
+            font-size: 0.85rem;
+            width: 160px;
+        }
+
+        .search-box span {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 6px;
+            font-size: 0.8rem;
+        }
+
+        thead {
+            background: rgba(15, 23, 42, 0.95);
+        }
+
+        th, td {
+            padding: 6px 8px;
+            text-align: left;
+            border-bottom: 1px solid rgba(31, 41, 55, 0.8);
+        }
+
+        th {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 0.75rem;
+        }
+
+        tbody tr:hover {
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        .status-pill {
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .status-online {
+            background: rgba(34, 197, 94, 0.16);
+            color: var(--success);
+        }
+
+        .status-offline {
+            background: rgba(248, 113, 113, 0.16);
+            color: var(--danger);
+        }
+
+        .status-idle {
+            background: rgba(250, 204, 21, 0.16);
+            color: var(--warning);
+        }
+
+        .btn-sm {
+            border: none;
+            border-radius: 999px;
+            padding: 3px 9px;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+        }
+
+        .btn-outline:hover {
+            background: var(--accent-soft);
+        }
+
+        .muted {
+            color: var(--text-muted);
+        }
+
+        @media (max-width: 720px) {
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .panel-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .search-box input {
+                width: 120px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <div class="title-block">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <h1>Painel C2 – Mirai Safe-Mode</h1>
+                <span class="title-tag">LAB EDUCACIONAL</span>
+            </div>
+            <p>Visão geral dos bots conectados na rede de laboratório (apenas ambiente controlado / host-only).</p>
+        </div>
+        <div class="header-right">
+            <div class="pill">
+                Sessão iniciada: <span id="sessionStart"></span>
+            </div>
+            <button class="refresh-btn" onclick="refreshData()">
+                ⟳ Atualizar
+            </button>
+        </div>
+    </header>
+
+    <!-- Cards de resumo -->
+    <section class="cards">
+        <article class="card">
+            <div class="card-title">Bots registrados</div>
+            <div class="card-value" id="totalBots">0</div>
+            <div class="card-foot">
+                <span class="dot green"></span>
+                <span id="totalBotsFoot">Nenhum bot conectado ainda.</span>
+            </div>
+        </article>
+
+        <article class="card">
+            <div class="card-title">Bots online</div>
+            <div class="card-value" id="onlineBots">0</div>
+            <div class="card-foot">
+                <span class="dot green"></span>
+                <span id="onlineBotsFoot">Aguardando conexões...</span>
+            </div>
+        </article>
+
+        <article class="card">
+            <div class="card-title">Bots offline / inativos</div>
+            <div class="card-value" id="offlineBots">0</div>
+            <div class="card-foot">
+                <span class="dot.red"></span>
+                <span id="offlineBotsFoot">Nenhum histórico ainda.</span>
+            </div>
+        </article>
+    </section>
+
+    <!-- Tabela de bots -->
+    <section class="panel">
+        <div class="panel-header">
+            <h2>Lista de bots conectados</h2>
+            <div class="search-box">
+                <span>🔍</span>
+                <input
+                    id="searchInput"
+                    type="text"
+                    placeholder="Filtrar por ID ou IP…"
+                    oninput="applyFilter()"
+                />
+            </div>
+        </div>
+
+        <table>
+            <thead>
+            <tr>
+                <th>Bot ID</th>
+                <th>IP</th>
+                <th>Hostname / SO</th>
+                <th>Status</th>
+                <th>Último contato</th>
+                <th>Latência estimada</th>
+                <th>Ações</th>
+            </tr>
+            </thead>
+            <tbody id="botsTableBody">
+            <!-- Linhas preenchidas via JavaScript -->
+            </tbody>
+        </table>
+    </section>
+</div>
+
+<script>
+    // ==================================================================
+    // CONFIGURAÇÃO DO LABORATÓRIO
+    // ==================================================================
+    // Coloque aqui o IP da VM onde está rodando o "python3 c2_bridge.py"
+    const API_URL = "http://192.168.56.10:8080/api/bots"; 
+    // ==================================================================
+
+    let bots = [];
+    let filteredBots = [];
+
+    // Formata o tempo de latência (segundos para texto amigável)
+    function formatLatency(seconds) {
+        if (seconds === undefined || seconds === null) return "<span class='muted'>n/d</span>";
+        if (seconds < 5) return "Online (< 5s)";
+        if (seconds < 60) return `${seconds}s atrás`;
+        return `${Math.floor(seconds / 60)}m atrás`;
+    }
+
+    // Converte timestamp Unix (ex: 1700000) para horário legível
+    function formatTimestamp(epochStr) {
+        if (!epochStr) return "-";
+        // O C devolve timestamp em segundos, JS usa milissegundos
+        const date = new Date(parseInt(epochStr) * 1000);
+        return date.toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    // Define cor do status baseado na latência
+    function getStatusClass(latency) {
+        if (latency < 60) return "status-pill status-online"; // Menos de 1 min
+        if (latency < 300) return "status-pill status-idle";   // Menos de 5 min
+        return "status-pill status-offline";
+    }
+
+    function getStatusLabel(latency) {
+        if (latency < 60) return "Online";
+        if (latency < 300) return "Ocioso";
+        return "Offline";
+    }
+
+    function renderBotsTable() {
+        const tbody = document.getElementById("botsTableBody");
+        tbody.innerHTML = "";
+
+        if (filteredBots.length === 0) {
+            tbody.innerHTML = "<tr><td colspan='7' style='text-align:center; padding:20px;' class='muted'>Nenhum bot encontrado ou servidor desconectado.</td></tr>";
+            return;
+        }
+
+        filteredBots.forEach(bot => {
+            // O JSON do Python traz: id, ip, latency, last_seen
+            const statusClass = getStatusClass(bot.latency);
+            const statusLabel = getStatusLabel(bot.latency);
+            const timeString = formatTimestamp(bot.last_seen);
+            const latString = formatLatency(bot.latency);
+
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td><strong>${bot.id}</strong></td>
+                <td>${bot.ip}</td>
+                <td>Linux/IoT (Simulated)</td>
+                <td><span class="${statusClass}">${statusLabel}</span></td>
+                <td>${timeString}</td>
+                <td>${latString}</td>
+                <td>
+                    <button class="btn-sm btn-outline" onclick="alert('Comando enviado para ${bot.id}')">
+                        Inspecionar
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        updateCounters();
+    }
+
+    function updateCounters() {
+        const total = bots.length;
+        // Consideramos online quem respondeu nos últimos 60 segundos
+        const online = bots.filter(b => b.latency < 60).length;
+        const offline = bots.filter(b => b.latency >= 60).length;
+
+        document.getElementById("totalBots").textContent = total;
+        document.getElementById("onlineBots").textContent = online;
+        document.getElementById("offlineBots").textContent = offline;
+
+        // Atualiza textos de rodapé dos cards
+        document.getElementById("totalBotsFoot").textContent = total > 0 ? `${total} registro(s) no C2.` : "Aguardando...";
+        document.getElementById("onlineBotsFoot").textContent = online > 0 ? `${online} bot(s) ativo(s).` : "Nenhum ativo.";
+        document.getElementById("offlineBotsFoot").textContent = offline > 0 ? `${offline} bot(s) mudo(s).` : "Tudo operante.";
+    }
+
+    function applyFilter() {
+        const term = document.getElementById("searchInput").value.toLowerCase();
+        if (!term) {
+            filteredBots = [...bots];
+        } else {
+            filteredBots = bots.filter(b =>
+                (b.id && b.id.toLowerCase().includes(term)) ||
+                (b.ip && b.ip.includes(term))
+            );
+        }
+        renderBotsTable();
+    }
+
+    async function refreshData() {
+        const btn = document.querySelector('.refresh-btn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = "⏳ ...";
+        btn.disabled = true;
+
+        try {
+            const response = await fetch(API_URL);
+            
+            if (!response.ok) {
+                throw new Error(`Erro HTTP: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // Verifica se o Python retornou erro de socket
+            if (data.error) {
+                console.warn("C2 Bridge Error:", data.error);
+                // Não limpamos a tabela, apenas avisamos no console para não "piscar" erro
+            } else {
+                bots = data;
+                filteredBots = [...bots];
+                // Reaplica filtro se houver algo digitado
+                if (document.getElementById("searchInput").value) {
+                    applyFilter();
+                } else {
+                    renderBotsTable();
+                }
+            }
+        } catch (error) {
+            console.error("Falha na conexão:", error);
+            // Opcional: Mostrar aviso visual se falhar muitas vezes
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+
+    // Inicialização
+    (function init() {
+        const now = new Date();
+        document.getElementById("sessionStart").textContent =
+            now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        
+        // Primeira carga
+        refreshData();
+
+        // Auto-refresh a cada 3 segundos
+        setInterval(refreshData, 3000);
+    })();
+</script>
+</body>
+</html>
