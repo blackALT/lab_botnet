@@ -27,8 +27,8 @@ O laboratório deve ser executado em ambiente virtualizado (VirtualBox, VMware o
 
 | Função | Hostname Sugerido | IP Sugerido (Host-Only)	 | Papel |
 | -------- | ----- | ----------- |----------- |
-| Atacante  | mirai-c2  | 192.168.56.10  | C2 Server + API Bridge + Dashboard |
-| Vítima   | mirai-bot  | 192.168.56.20  | Dispositivo IoT Infectado (Bot) |
+| Atacante  | mirai-c2  | 192.168.56.102  | C2 Server + API Bridge + Dashboard |
+| Vítima   | mirai-bot  | 192.168.56.105  | Dispositivo IoT Infectado (Bot) |
 | Rede	| vboxnet0	| 192.168.56.1/24 | Rede Isolada |
 
 ### 🛠️ Instalação e Compilação
@@ -164,3 +164,4 @@ killall -9 system_update_service
 ```
 
 Laboratório desenvolvido por BlackALT para Curso de Formação em CTI e Resposta a Incidentes.
+
